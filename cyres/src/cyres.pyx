@@ -12,6 +12,7 @@ import numpy as np
 cimport ceres
 from cyres cimport *
 
+
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
     reverse = dict((value, key) for key, value in enums.iteritems())
@@ -227,6 +228,13 @@ cdef class EvaluateOptions:
         def __set__(self, value):
             self._options.apply_loss_function = value
 
+    property num_threads:
+        def __get__(self):
+            return self._options.num_threads
+
+        def __set__(self, value):
+            self._options.num_threads = value
+
 cdef class SolverOptions:
     cdef ceres.SolverOptions* _options
 
@@ -351,5 +359,67 @@ cdef class Problem:
 cdef class ResidualBlockId:
     cdef ceres.ResidualBlockId _block_id
 
+cdef class ArrayWrapper(object):
+    cdef public dict __array_interface__
+
+    def __init__(self, **kwargs):
+        self.__array_interface__ = kwargs
+
+cdef array_fromaddress(address, shape, dtype=np.float64, strides=None, ro=True):
+    dtype = np.dtype(dtype)
+    return np.asarray(ArrayWrapper(
+        data=(address, ro),
+        typestr=dtype.str,
+        descr=dtype.descr,
+       shape=shape,
+        strides=strides,
+        version=3,
+    ))
+
 def solve(SolverOptions options, Problem problem, Summary summary):
     ceres.Solve(drf(options._options), &problem._problem, &summary._summary)
+
+cdef object global_py_callback_func
+cdef object global_py_callback_grad
+cdef int global_py_callback_size
+
+cdef double callback_wrapper_func(const double* x):
+    global global_py_callback_func
+    x_arr = array_fromaddress(<long>x, (global_py_callback_size,))
+    return global_py_callback_func(x_arr)
+
+cdef double* callback_wrapper_grad(const double* x):
+    global global_py_callback_grad
+    x_arr = array_fromaddress(<long>x, (global_py_callback_size,))
+    x_result = global_py_callback_grad(x_arr)
+    cdef np.ndarray[np.float64_t, ndim=1] out = x_result
+    return &out[0]
+
+cdef class FirstOrderFunction:
+    cdef ceres.Callback* _callback;
+    cdef object callback_func
+    cdef object callback_grad
+
+    def __init__(self, num_params, func, grad):
+        self.callback_func = func
+        self.callback_grad = grad
+        self._callback = new ceres.Callback(num_params, &callback_wrapper_func, &callback_wrapper_grad);
+
+    def evaluate(self, params):
+        global global_py_callback_func
+        global global_py_callback_grad
+        global global_py_callback_size
+        global_py_callback_func = self.callback_func
+        global_py_callback_grad = self.callback_grad
+        global_py_callback_size = self.numParameters()
+
+        cdef np.ndarray[np.float64_t, ndim=1] cparams = params
+        cdef np.ndarray[np.float64_t, ndim=1] cost = np.zeros(self.numParameters())
+        cdef np.ndarray[np.float64_t, ndim=1] gradient = np.zeros(self.numParameters())
+        self._callback.Evaluate(&cparams[0], &cost[0], &gradient[0])
+
+        return cost, gradient
+
+    def numParameters(self):
+        return self._callback.NumParameters()
+
