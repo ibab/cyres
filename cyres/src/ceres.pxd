@@ -1072,3 +1072,18 @@ cdef extern from "problem.h" namespace "ceres":
                         vector[double]* residuals,
                         vector[double]* gradient,
                         CRSMatrix* jacobian)
+
+cdef extern from "gradient_problem.h" namespace "ceres":
+    cdef cppclass FirstOrderFunction:
+        FirstOrderFunction()
+        bool Evaluate(const double* const parameters,
+                        double* cost,
+                        double gradient);
+        int NumParameters();
+
+cdef extern from "wrapper.h":
+    cdef cppclass Callback:
+        Callback(int num_params, double (*func)(double*), double* (*grad)(double*));
+        bool Evaluate(const double* const parameters, double* cost, double* gradient);
+        int NumParameters();
+
