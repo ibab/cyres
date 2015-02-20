@@ -1076,10 +1076,10 @@ cdef extern from "problem.h" namespace "ceres":
 cdef extern from "gradient_problem.h" namespace "ceres":
     cdef cppclass FirstOrderFunction:
         FirstOrderFunction()
-        bool Evaluate(const double* const parameters,
-                        double* cost,
-                        double gradient);
-        int NumParameters();
+        bool Evaluate(const double* parameters,
+                      double* cost,
+                      double* gradient) const
+        int NumParameters() const
 
     cdef cppclass GradientProblem:
         GradientProblem(FirstOrderFunction* function)
@@ -1098,11 +1098,4 @@ cdef extern from "gradient_problem_solver.h" namespace "ceres":
     cdef cppclass GradientProblemSolverSummary "ceres::GradientProblemSolver::Summary":
         GradientProblemSolverSummary()
         string FullReport()
-
-cdef extern from "wrapper.h":
-    cdef cppclass Callback:
-        Callback(int num_params, double (*func)(double*), double* (*grad)(double*));
-        bool Evaluate(const double* const parameters, double* cost, double* gradient);
-        int NumParameters();
-
 
