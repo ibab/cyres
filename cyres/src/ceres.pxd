@@ -1084,6 +1084,21 @@ cdef extern from "gradient_problem.h" namespace "ceres":
     cdef cppclass GradientProblem:
         GradientProblem(FirstOrderFunction* function)
 
+cdef extern from "gradient_problem_solver.h" namespace "ceres":
+    cdef cppclass GradientProblemSolver:
+        GradientProblemSolver()
+        void Solve(const GradientProblemSolverOptions &options,
+                   const GradientProblem &problem,
+                   double* parameters,
+                   GradientProblemSolverSummary* summary)
+
+    cdef cppclass GradientProblemSolverOptions "ceres::GradientProblemSolver::Options":
+        GradientProblemSolverOptions()
+
+    cdef cppclass GradientProblemSolverSummary "ceres::GradientProblemSolver::Summary":
+        GradientProblemSolverSummary()
+        string FullReport()
+
 cdef extern from "wrapper.h":
     cdef cppclass Callback:
         Callback(int num_params, double (*func)(double*), double* (*grad)(double*));

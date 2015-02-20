@@ -430,3 +430,34 @@ cdef class GradientProblem:
         cdef ceres.FirstOrderFunction* callback = <ceres.FirstOrderFunction*>function._callback
         self._problem = new ceres.GradientProblem(callback)
 
+cdef class GradientProblemSolverOptions:
+    cdef ceres.GradientProblemSolverOptions _options
+
+    def __init__(self):
+        self._options = ceres.GradientProblemSolverOptions()
+
+cdef class GradientProblemSolverSummary:
+    cdef ceres.GradientProblemSolverSummary* _summary
+
+    def __init__(self):
+        self._summary = new ceres.GradientProblemSolverSummary()
+
+    def fullReport(self):
+        return self._summary.FullReport()
+
+cdef class GradientProblemSolver:
+    cdef ceres.GradientProblemSolver* _solver
+
+    def __init__(self):
+        self._solver = new ceres.GradientProblemSolver()
+
+    def solve(self,
+              GradientProblemSolverOptions options,
+              GradientProblem problem,
+              parameters):
+        summary = GradientProblemSolverSummary()
+
+        cdef np.ndarray[np.float64_t, ndim=1] _parameters = parameters
+        self._solver.Solve(options._options, problem._problem[0], &_parameters[0], summary._summary)
+        return summary
+
