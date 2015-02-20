@@ -33,13 +33,13 @@ def has_openmp():
 
     return result == 0
 
-ceres_include = "/usr/local/include/ceres/"
+ceres_include = "/usr/include/ceres/"
 
-ceres_lib = "/usr/local/lib/"
-gflags_lib = "/usr/local/lib/"
-glog_lib = "/usr/local/lib/"
-cholmod_lib = amd_lib = camd_lib = colamd_lib = "/usr/local/lib/"
-cxsparse_lib = "/usr/local/lib/"
+ceres_lib = "/usr/lib/"
+gflags_lib = "/usr/lib/"
+glog_lib = "/usr/lib/"
+cholmod_lib = amd_lib = camd_lib = colamd_lib = "/usr/lib/"
+cxsparse_lib = "/usr/lib/"
 
 extra_compile_args = ['-O3']
 extra_link_args = []
@@ -53,7 +53,7 @@ ext_modules = [
         "cyres",
         ["cyres/src/cyres.pyx", "cyres/src/cyres.pxd", "cyres/src/ceres.pxd"],
         language="c++",
-        include_dirs=[ceres_include, numpy.get_include()],
+        include_dirs=[ceres_include, '/usr/include/eigen3', numpy.get_include()],
         libraries=['ceres', 'gflags', 'glog', "cholmod", "camd", "amd", "colamd", "cxsparse"],
         library_dirs=[ceres_lib, gflags_lib, glog_lib, cholmod_lib, amd_lib, camd_lib, colamd_lib, cxsparse_lib],
         extra_compile_args=extra_compile_args,
