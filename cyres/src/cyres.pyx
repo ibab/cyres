@@ -396,7 +396,7 @@ cdef double* callback_wrapper_grad(const double* x):
     return &out[0]
 
 cdef class FirstOrderFunction:
-    cdef ceres.Callback* _callback;
+    cdef ceres.Callback* _callback
     cdef object callback_func
     cdef object callback_grad
 
@@ -405,7 +405,6 @@ cdef class FirstOrderFunction:
         self.callback_grad = grad
         self._callback = new ceres.Callback(num_params, &callback_wrapper_func, &callback_wrapper_grad);
 
-    def evaluate(self, params):
         global global_py_callback_func
         global global_py_callback_grad
         global global_py_callback_size
@@ -413,6 +412,7 @@ cdef class FirstOrderFunction:
         global_py_callback_grad = self.callback_grad
         global_py_callback_size = self.numParameters()
 
+    def evaluate(self, params):
         cdef np.ndarray[np.float64_t, ndim=1] cparams = params
         cdef np.ndarray[np.float64_t, ndim=1] cost = np.zeros(self.numParameters())
         cdef np.ndarray[np.float64_t, ndim=1] gradient = np.zeros(self.numParameters())
@@ -422,4 +422,11 @@ cdef class FirstOrderFunction:
 
     def numParameters(self):
         return self._callback.NumParameters()
+
+cdef class GradientProblem:
+    cdef ceres.GradientProblem* _problem
+
+    def __init__(self, FirstOrderFunction function):
+        cdef ceres.FirstOrderFunction* callback = <ceres.FirstOrderFunction*>function._callback
+        self._problem = new ceres.GradientProblem(callback)
 
