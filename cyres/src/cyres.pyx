@@ -395,23 +395,20 @@ cdef double* callback_wrapper_grad(const double* x):
     cdef np.ndarray[np.float64_t, ndim=1] out = x_result
     return &out[0]
 
-ctypedef double (*EvalFunc)(const double* const);
-ctypedef double* (*EvalGrad)(const double* const);
-
 cdef cppclass Callback(ceres.FirstOrderFunction):
+    # This pure-C++ class is used to interface arbitrary Python functions
+    # with ceres::GradientProblemSolver.
+    # Because Python objects cannot be members of C++ classes, we save them
+    # globally and use the ones that are currently active.
     int num_params
-    EvalFunc func
-    EvalGrad grad
 
-    Callback(int num_params, EvalFunc func, EvalGrad grad):
-        this.func = func
-        this.grad = grad
+    Callback(int num_params):
         this.num_params = num_params
 
     bool Evaluate(const double* parameters, double* cost, double* gradient) const:
-        cost[0] = this.func(parameters)
+        cost[0] = callback_wrapper_func(parameters)
         cdef int i = 0
-        cdef double* new_grad = this.grad(parameters)
+        cdef double* new_grad = callback_wrapper_grad(parameters)
         for i in range(this.num_params):
             gradient[i] = new_grad[i]
 
@@ -428,16 +425,10 @@ cdef class FirstOrderFunction:
     def __init__(self, num_params, func, grad):
         self.callback_func = func
         self.callback_grad = grad
-        self._callback = new Callback(num_params, &callback_wrapper_func, &callback_wrapper_grad);
-
-        global global_py_callback_func
-        global global_py_callback_grad
-        global global_py_callback_size
-        global_py_callback_func = self.callback_func
-        global_py_callback_grad = self.callback_grad
-        global_py_callback_size = self.numParameters()
+        self._callback = new Callback(num_params);
 
     def evaluate(self, params):
+        self.refreshFunctions()
         cdef np.ndarray[np.float64_t, ndim=1] cparams = params
         cdef np.ndarray[np.float64_t, ndim=1] cost = np.zeros(self.numParameters())
         cdef np.ndarray[np.float64_t, ndim=1] gradient = np.zeros(self.numParameters())
@@ -448,12 +439,25 @@ cdef class FirstOrderFunction:
     def numParameters(self):
         return self._callback.NumParameters()
 
+    def refreshFunctions(self):
+        global global_py_callback_func
+        global global_py_callback_grad
+        global global_py_callback_size
+        global_py_callback_func = self.callback_func
+        global_py_callback_grad = self.callback_grad
+        global_py_callback_size = self.numParameters()
+
 cdef class GradientProblem:
     cdef ceres.GradientProblem* _problem
+    cdef FirstOrderFunction _function
 
     def __init__(self, FirstOrderFunction function):
+        self._function = function
         cdef ceres.FirstOrderFunction* callback = <ceres.FirstOrderFunction*>function._callback
         self._problem = new ceres.GradientProblem(callback)
+
+    def refreshFunctions(self):
+        self._function.refreshFunctions()
 
 cdef class GradientProblemSolverOptions:
     cdef ceres.GradientProblemSolverOptions _options
@@ -480,6 +484,11 @@ cdef class GradientProblemSolver:
               GradientProblemSolverOptions options,
               GradientProblem problem,
               parameters):
+        global global_py_callback_func
+
+        # Put function and gradient into global variables so we can access them from C++
+        problem.refreshFunctions()
+
         summary = GradientProblemSolverSummary()
 
         cdef np.ndarray[np.float64_t, ndim=1] _parameters = parameters
