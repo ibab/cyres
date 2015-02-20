@@ -1,6 +1,7 @@
 from distutils.core import setup
 from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
+from Cython.Build import cythonize
 import numpy
 
 import os, tempfile, subprocess, shutil
@@ -33,29 +34,21 @@ def has_openmp():
 
     return result == 0
 
-ceres_include = "/usr/include/ceres/"
-
-ceres_lib = "/usr/lib/"
-gflags_lib = "/usr/lib/"
-glog_lib = "/usr/lib/"
-cholmod_lib = amd_lib = camd_lib = colamd_lib = "/usr/lib/"
-cxsparse_lib = "/usr/lib/"
-
 extra_compile_args = ['-O3']
 extra_link_args = []
 
 if has_openmp():
-    extra_compile_args = ['-fopenmp']
-    extra_link_args = ['-lgomp']
+    extra_compile_args += ['-fopenmp']
+    extra_link_args += ['-lgomp']
 
 ext_modules = [
     Extension(
         "cyres",
-        ["cyres/src/cyres.pyx", "cyres/src/cyres.pxd", "cyres/src/ceres.pxd"],
+        ["cyres/src/cyres.pyx"],
         language="c++",
-        include_dirs=[ceres_include, '/usr/include/eigen3', numpy.get_include()],
-        libraries=['ceres', 'gflags', 'glog', "cholmod", "camd", "amd", "colamd", "cxsparse"],
-        library_dirs=[ceres_lib, gflags_lib, glog_lib, cholmod_lib, amd_lib, camd_lib, colamd_lib, cxsparse_lib],
+        include_dirs=['/usr/include/ceres/', '/usr/include/eigen3', numpy.get_include()],
+        libraries=['ceres', 'gflags', 'glog', 'cholmod', 'camd', 'amd', 'colamd', 'cxsparse'],
+        library_dirs=[],
         extra_compile_args=extra_compile_args,
         extra_link_args=extra_link_args,
     )
@@ -64,10 +57,7 @@ ext_modules = [
 setup(
   name = 'cyres',
   version='0.0.1',
-  cmdclass = {'build_ext': build_ext},
   ext_package = 'cyres',
-  ext_modules = ext_modules,
+  ext_modules = cythonize(ext_modules),
   packages= ['cyres'],
-  package_data={'cyres': ['src/*.pxd']},
-  scripts=['scripts/cyresc']
 )
