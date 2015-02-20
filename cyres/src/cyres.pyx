@@ -4,6 +4,7 @@ import cython
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, free
 from cython.operator cimport dereference as drf
+from libcpp cimport bool
 
 cimport numpy as np
 
@@ -11,7 +12,6 @@ import numpy as np
 
 cimport ceres
 from cyres cimport *
-
 
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
@@ -395,15 +395,40 @@ cdef double* callback_wrapper_grad(const double* x):
     cdef np.ndarray[np.float64_t, ndim=1] out = x_result
     return &out[0]
 
+ctypedef double (*EvalFunc)(const double* const);
+ctypedef double* (*EvalGrad)(const double* const);
+
+cdef cppclass Callback(ceres.FirstOrderFunction):
+    int num_params
+    EvalFunc func
+    EvalGrad grad
+
+    Callback(int num_params, EvalFunc func, EvalGrad grad):
+        this.func = func
+        this.grad = grad
+        this.num_params = num_params
+
+    bool Evaluate(const double* parameters, double* cost, double* gradient) const:
+        cost[0] = this.func(parameters)
+        cdef int i = 0
+        cdef double* new_grad = this.grad(parameters)
+        for i in range(this.num_params):
+            gradient[i] = new_grad[i]
+
+        return True
+    
+    int NumParameters() const:
+        return this.num_params
+
 cdef class FirstOrderFunction:
-    cdef ceres.Callback* _callback
+    cdef Callback* _callback
     cdef object callback_func
     cdef object callback_grad
 
     def __init__(self, num_params, func, grad):
         self.callback_func = func
         self.callback_grad = grad
-        self._callback = new ceres.Callback(num_params, &callback_wrapper_func, &callback_wrapper_grad);
+        self._callback = new Callback(num_params, &callback_wrapper_func, &callback_wrapper_grad);
 
         global global_py_callback_func
         global global_py_callback_grad
